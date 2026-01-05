@@ -22,38 +22,38 @@ from fibonacci_simulator import (
 # -----------------------------
 # ✅ Chrome-safe PDF preview (Blob URL)
 # -----------------------------
-def display_pdf(pdf_path: str):
-    """Chrome-safe PDF viewer using Blob URL"""
-    with open(pdf_path, "rb") as f:
-        pdf_bytes = f.read()
+# def display_pdf(pdf_path: str):
+#     """Chrome-safe PDF viewer using Blob URL"""
+#     with open(pdf_path, "rb") as f:
+#         pdf_bytes = f.read()
 
-    b64 = base64.b64encode(pdf_bytes).decode("utf-8")
+#     b64 = base64.b64encode(pdf_bytes).decode("utf-8")
 
-    pdf_viewer = f"""
-    <html>
-    <head>
-    <script>
-    function openPDF() {{
-        const base64 = "{b64}";
-        const byteCharacters = atob(base64);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {{
-            byteNumbers[i] = byteCharacters.charCodeAt(i);
-        }}
-        const byteArray = new Uint8Array(byteNumbers);
-        const blob = new Blob([byteArray], {{type: "application/pdf"}});
-        const blobUrl = URL.createObjectURL(blob);
-        document.getElementById("pdfFrame").src = blobUrl;
-    }}
-    window.onload = openPDF;
-    </script>
-    </head>
-    <body style="margin:0">
-        <iframe id="pdfFrame" width="100%" height="800px" style="border:none;"></iframe>
-    </body>
-    </html>
-    """
-    components.html(pdf_viewer, height=820, scrolling=True)
+#     pdf_viewer = f"""
+#     <html>
+#     <head>
+#     <script>
+#     function openPDF() {{
+#         const base64 = "{b64}";
+#         const byteCharacters = atob(base64);
+#         const byteNumbers = new Array(byteCharacters.length);
+#         for (let i = 0; i < byteCharacters.length; i++) {{
+#             byteNumbers[i] = byteCharacters.charCodeAt(i);
+#         }}
+#         const byteArray = new Uint8Array(byteNumbers);
+#         const blob = new Blob([byteArray], {{type: "application/pdf"}});
+#         const blobUrl = URL.createObjectURL(blob);
+#         document.getElementById("pdfFrame").src = blobUrl;
+#     }}
+#     window.onload = openPDF;
+#     </script>
+#     </head>
+#     <body style="margin:0">
+#         <iframe id="pdfFrame" width="100%" height="800px" style="border:none;"></iframe>
+#     </body>
+#     </html>
+#     """
+#     components.html(pdf_viewer, height=820, scrolling=True)
 
 
 # -----------------------------
@@ -525,66 +525,109 @@ def main():
                     with st.expander("🔍 View Error Details"):
                         st.code(traceback.format_exc())
 
-    # Results
-    if st.session_state.get("processed", False):
-        st.markdown("---")
-        st.header("📈 Analysis Results")
+    # # Results
+    # if st.session_state.get("processed", False):
+    #     st.markdown("---")
+    #     st.header("📈 Analysis Results")
 
-        results = st.session_state["results"]
+    #     results = st.session_state["results"]
 
-        for sym, data in results.items():
-            st.subheader(f"Symbol: {sym}")
-            legs = data["legs"]
+    #     for sym, data in results.items():
+    #         st.subheader(f"Symbol: {sym}")
+    #         legs = data["legs"]
 
-            total_legs = len(legs)
-            valid_legs = sum(1 for x in legs if x.validation_info.get("is_valid_fib"))
-            invalid_legs = sum(1 for x in legs if x.state == FibState.INVALIDATED and not getattr(x, "quality_rejected", False))
-            target_hits = sum(1 for x in legs if x.state == FibState.TARGET_HIT)
-            sl_hits = sum(1 for x in legs if x.state == FibState.STOPLOSS_HIT)
-            active_legs = sum(1 for x in legs if x.state in (FibState.ACTIVE, FibState.VALIDATED))
+    #         total_legs = len(legs)
+    #         valid_legs = sum(1 for x in legs if x.validation_info.get("is_valid_fib"))
+    #         invalid_legs = sum(1 for x in legs if x.state == FibState.INVALIDATED and not getattr(x, "quality_rejected", False))
+    #         target_hits = sum(1 for x in legs if x.state == FibState.TARGET_HIT)
+    #         sl_hits = sum(1 for x in legs if x.state == FibState.STOPLOSS_HIT)
+    #         active_legs = sum(1 for x in legs if x.state in (FibState.ACTIVE, FibState.VALIDATED))
 
-            c1, c2, c3, c4, c5, c6 = st.columns(6)
-            c1.metric("Total Legs", total_legs)
-            c2.metric("Valid", valid_legs, delta=f"{(valid_legs/total_legs*100) if total_legs > 0 else 0:.1f}%")
-            c3.metric("Invalid", invalid_legs)
-            c4.metric("Target Hits", target_hits, delta="✅")
-            c5.metric("Stoploss Hits", sl_hits, delta="❌")
-            c6.metric("Active", active_legs)
+    #         c1, c2, c3, c4, c5, c6 = st.columns(6)
+    #         c1.metric("Total Legs", total_legs)
+    #         c2.metric("Valid", valid_legs, delta=f"{(valid_legs/total_legs*100) if total_legs > 0 else 0:.1f}%")
+    #         c3.metric("Invalid", invalid_legs)
+    #         c4.metric("Target Hits", target_hits, delta="✅")
+    #         c5.metric("Stoploss Hits", sl_hits, delta="❌")
+    #         c6.metric("Active", active_legs)
 
-            st.markdown("---")
-            st.subheader("📊 Interactive Fibonacci Chart")
-            with st.spinner("🎨 Generating interactive chart..."):
-                fig = plot_fibonacci_chart(data["df"], sym, legs, int(min_candles))
-                if fig is not None:
-                    st.plotly_chart(fig, use_container_width=True)
-                else:
-                    st.warning("⚠️ No chart data available for this symbol")
+    #         st.markdown("---")
+    #         st.subheader("📊 Interactive Fibonacci Chart")
+    #         with st.spinner("🎨 Generating interactive chart..."):
+    #             fig = plot_fibonacci_chart(data["df"], sym, legs, int(min_candles))
+    #             if fig is not None:
+    #                 st.plotly_chart(fig, use_container_width=True)
+    #             else:
+    #                 st.warning("⚠️ No chart data available for this symbol")
 
-            st.markdown("---")
-            st.subheader("📄 PDF Report")
+    #         st.markdown("---")
+    #         st.subheader("📄 PDF Report")
 
-            col_pdf1, col_pdf2 = st.columns(2)
+    #         col_pdf1, col_pdf2 = st.columns(2)
 
-            with col_pdf1:
-                if st.button(f"👁️ View PDF Report - {sym}", key=f"view_{sym}"):
-                    st.session_state[f"show_pdf_{sym}"] = not st.session_state.get(f"show_pdf_{sym}", False)
+    #         with col_pdf1:
+    #             if st.button(f"👁️ View PDF Report - {sym}", key=f"view_{sym}"):
+    #                 st.session_state[f"show_pdf_{sym}"] = not st.session_state.get(f"show_pdf_{sym}", False)
 
-            with col_pdf2:
-                with open(data["pdf_path"], "rb") as f:
-                    st.download_button(
-                        label="📥 Download PDF Report",
-                        data=f.read(),
-                        file_name=data["pdf_name"],
-                        mime="application/pdf",
-                        use_container_width=True
-                    )
+    #         with col_pdf2:
+    #             with open(data["pdf_path"], "rb") as f:
+    #                 st.download_button(
+    #                     label="📥 Download PDF Report",
+    #                     data=f.read(),
+    #                     file_name=data["pdf_name"],
+    #                     mime="application/pdf",
+    #                     use_container_width=True
+    #                 )
 
-            if st.session_state.get(f"show_pdf_{sym}", False):
-                st.markdown("### 📄 PDF Report Preview")
-                display_pdf(data["pdf_path"])
+    #         if st.session_state.get(f"show_pdf_{sym}", False):
+    #             st.markdown("### 📄 PDF Report Preview")
+    #             display_pdf(data["pdf_path"])
 
-            st.markdown("---")
+    #         st.markdown("---")
+
+st.subheader("📄 PDF Report")
+
+col_pdf1, col_pdf2 = st.columns(2)
+
+# Open PDF in new tab (browser-native)
+with col_pdf1:
+    with open(data["pdf_path"], "rb") as f:
+        pdf_bytes = f.read()
+        b64 = base64.b64encode(pdf_bytes).decode()
+
+        st.markdown(
+            f"""
+            <a href="data:application/pdf;base64,{b64}" 
+               target="_blank"
+               style="text-decoration:none;">
+               <button style="
+                   width:100%;
+                   padding:10px;
+                   font-weight:bold;
+                   background:#4CAF50;
+                   color:white;
+                   border:none;
+                   border-radius:6px;
+                   cursor:pointer;">
+                   👁️ Open PDF in New Tab
+               </button>
+            </a>
+            """,
+            unsafe_allow_html=True
+        )
+
+# Download PDF
+with col_pdf2:
+    st.download_button(
+        label="📥 Download PDF Report",
+        data=pdf_bytes,
+        file_name=data["pdf_name"],
+        mime="application/pdf",
+        use_container_width=True
+    )
+
 
 
 if __name__ == "__main__":
     main()
+
