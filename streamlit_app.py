@@ -565,11 +565,11 @@ def main():
 
             col_pdf1, col_pdf2 = st.columns(2)
 
-            with col_pdf1:
-                if st.button(f"👁️ View PDF Report - {sym}", key=f"view_{sym}"):
-                    st.session_state[f"show_pdf_{sym}"] = not st.session_state.get(f"show_pdf_{sym}", False)
+            # with col_pdf1:
+            #     if st.button(f"👁️ View PDF Report - {sym}", key=f"view_{sym}"):
+            #         st.session_state[f"show_pdf_{sym}"] = not st.session_state.get(f"show_pdf_{sym}", False)
 
-            with col_pdf2:
+            with col_pdf1:
                 with open(data["pdf_path"], "rb") as f:
                     st.download_button(
                         label="📥 Download PDF Report",
@@ -588,3 +588,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
