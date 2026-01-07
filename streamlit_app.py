@@ -1,10 +1,8 @@
 import os
 import tempfile
-import base64
 from pathlib import Path
 
 import streamlit as st
-import streamlit.components.v1 as components
 import pandas as pd
 import plotly.graph_objects as go
 
@@ -14,46 +12,8 @@ from fibonacci_simulator import (
     simulate_live_fibonacci_professional,
     export_fib_summary_pdf,
     FibState,
-    FIB_LEVELS,
     LABEL_LEVELS
 )
-
-
-# -----------------------------
-# ✅ Chrome-safe PDF preview (Blob URL)
-# -----------------------------
-def display_pdf(pdf_path: str):
-    """Chrome-safe PDF viewer using Blob URL"""
-    with open(pdf_path, "rb") as f:
-        pdf_bytes = f.read()
-
-    b64 = base64.b64encode(pdf_bytes).decode("utf-8")
-
-    pdf_viewer = f"""
-    <html>
-    <head>
-    <script>
-    function openPDF() {{
-        const base64 = "{b64}";
-        const byteCharacters = atob(base64);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {{
-            byteNumbers[i] = byteCharacters.charCodeAt(i);
-        }}
-        const byteArray = new Uint8Array(byteNumbers);
-        const blob = new Blob([byteArray], {{type: "application/pdf"}});
-        const blobUrl = URL.createObjectURL(blob);
-        document.getElementById("pdfFrame").src = blobUrl;
-    }}
-    window.onload = openPDF;
-    </script>
-    </head>
-    <body style="margin:0">
-        <iframe id="pdfFrame" width="100%" height="800px" style="border:none;"></iframe>
-    </body>
-    </html>
-    """
-    components.html(pdf_viewer, height=820, scrolling=True)
 
 
 # -----------------------------
@@ -268,7 +228,7 @@ def plot_fibonacci_chart(df: pd.DataFrame, symbol: str, legs: list, min_gap: int
                 )
             )
 
-        # ✅ FIXED GZ marker (seq is not dataframe index)
+        # ✅ GZ marker (seq is not dataframe index)
         gz_seq = leg.validation_info.get("golden_zone_entry_seq")
         if gz_seq is not None:
             candle_rows = sym_df[sym_df["seq"] == int(gz_seq)]
@@ -427,41 +387,11 @@ def main():
         if use_debug_extreme:
             debug_extreme_index = st.number_input("Debug Extreme Pivot Index", min_value=1, value=1)
 
-    # Status
-    col1, col2 = st.columns([2, 1])
-
-    with col1:
-        st.subheader("📁 File Status")
-        if uploaded_file is None:
-            st.info("👆 Please upload a CSV file from the sidebar to begin")
-        else:
-            st.success(f"✅ File uploaded: **{uploaded_file.name}**")
-            try:
-                df_preview = pd.read_csv(uploaded_file)
-                uploaded_file.seek(0)
-                with st.expander("📋 Preview Data (first 10 rows)"):
-                    st.dataframe(df_preview.head(10), use_container_width=True)
-
-                required_cols = {'open', 'high', 'low', 'close'}
-                actual_cols = {col.strip().lower() for col in df_preview.columns}
-                missing_cols = required_cols - actual_cols
-                if missing_cols:
-                    st.error(f"❌ Missing required columns: {missing_cols}")
-                else:
-                    st.success("✅ All required columns present (open, high, low, close)")
-            except Exception as e:
-                st.error(f"❌ Error reading CSV: {str(e)}")
-
-    with col2:
-        st.subheader("📊 Current Settings")
-        st.markdown(f"""
-        - **Timeframe:** `{resample_timeframe}`
-        - **Trend:** `{trend}`
-        - **Min Candles:** `{min_candles}`
-        - **Pivot Period:** `{pivot_period}`
-        - **Manual Anchor:** `{manual_anchor_seq if use_manual_anchor else 'None'}`
-        - **Debug Extreme:** `{debug_extreme_index if use_debug_extreme else 'None'}`
-        """)
+    # Small top status (optional, not "File Status section")
+    if uploaded_file is None:
+        st.info("👈 Upload a CSV from the sidebar to begin.")
+    else:
+        st.success(f"✅ File uploaded: **{uploaded_file.name}**")
 
     st.markdown("---")
 
@@ -475,12 +405,13 @@ def main():
                     with open(csv_path, "wb") as f:
                         f.write(uploaded_file.getbuffer())
 
+                    # Update simulator globals (no change to simulator file)
                     import fibonacci_simulator as fib_sim
                     fib_sim.CSV_FILE = csv_path
                     fib_sim.RESAMPLE_TIMEFRAME = resample_timeframe
                     fib_sim.TREND = trend
-                    fib_sim.MIN_CANDLES_LOW_TO_HIGH = min_candles
-                    fib_sim.PIVOT_PERIOD = pivot_period
+                    fib_sim.MIN_CANDLES_LOW_TO_HIGH = int(min_candles)
+                    fib_sim.PIVOT_PERIOD = int(pivot_period)
                     fib_sim.MANUAL_FIRST_ANCHOR_SEQ = manual_anchor_seq
                     fib_sim.DEBUG_EXTREME_PIVOT_H_INDEX = debug_extreme_index
                     fib_sim.DO_PLOT = False
@@ -511,13 +442,22 @@ def main():
                             "pdf_path": pdf_path,
                             "pdf_name": pdf_name,
                             "df": df,
+                            "df_preview": pd.read_csv(csv_path),  # for File Status section later
                         }
 
                     st.session_state["results"] = all_results
                     st.session_state["processed"] = True
+                    st.session_state["settings_snapshot"] = {
+                        "timeframe": resample_timeframe,
+                        "trend": trend,
+                        "min_candles": int(min_candles),
+                        "pivot_period": int(pivot_period),
+                        "manual_anchor": manual_anchor_seq if use_manual_anchor else None,
+                        "debug_extreme": debug_extreme_index if use_debug_extreme else None,
+                    }
 
                     st.success("✅ Analysis complete!")
-                    st.balloons()
+                    # st.balloons()
 
                 except Exception as e:
                     st.error(f"❌ Error during processing: {str(e)}")
@@ -525,11 +465,16 @@ def main():
                     with st.expander("🔍 View Error Details"):
                         st.code(traceback.format_exc())
 
-    # Results
-    if st.session_state.get("processed", False):
-        st.markdown("---")
-        st.header("📈 Analysis Results")
+    # =========================================================
+    # ✅ ORDER YOU WANT:
+    # 1) Analysis Results (Chart)
+    # 2) PDF Report
+    # 3) File Status (moved bottom)
+    # =========================================================
 
+    # 1) Analysis Results (Chart)
+    if st.session_state.get("processed", False):
+        st.header("📈 Analysis Results")
         results = st.session_state["results"]
 
         for sym, data in results.items():
@@ -551,41 +496,73 @@ def main():
             c5.metric("Stoploss Hits", sl_hits, delta="❌")
             c6.metric("Active", active_legs)
 
-            st.markdown("---")
             st.subheader("📊 Interactive Fibonacci Chart")
-            with st.spinner("🎨 Generating interactive chart..."):
-                fig = plot_fibonacci_chart(data["df"], sym, legs, int(min_candles))
-                if fig is not None:
-                    st.plotly_chart(fig, use_container_width=True)
-                else:
-                    st.warning("⚠️ No chart data available for this symbol")
+            fig = plot_fibonacci_chart(data["df"], sym, legs, int(st.session_state["settings_snapshot"]["min_candles"]))
+            if fig is not None:
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.warning("⚠️ No chart data available for this symbol")
 
             st.markdown("---")
-            st.subheader("📄 PDF Report")
 
-            col_pdf1, col_pdf2 = st.columns(2)
+        # 2) PDF Report (after charts)
+        st.header("📄 PDF Report")
+        for sym, data in results.items():
+            st.subheader(f"PDF for: {sym}")
+            with open(data["pdf_path"], "rb") as f:
+                st.download_button(
+                    label=f"📥 Download PDF Report - {sym}",
+                    data=f.read(),
+                    file_name=data["pdf_name"],
+                    mime="application/pdf",
+                    use_container_width=True
+                )
 
-            # with col_pdf1:
-            #     if st.button(f"👁️ View PDF Report - {sym}", key=f"view_{sym}"):
-            #         st.session_state[f"show_pdf_{sym}"] = not st.session_state.get(f"show_pdf_{sym}", False)
+        st.markdown("---")
 
-            with col_pdf1:
-                with open(data["pdf_path"], "rb") as f:
-                    st.download_button(
-                        label="📥 Download PDF Report",
-                        data=f.read(),
-                        file_name=data["pdf_name"],
-                        mime="application/pdf",
-                        use_container_width=True
-                    )
+        # 3) File Status (moved to bottom)
+        st.header("📁 File Status")
+        if uploaded_file is None:
+            st.info("👆 No file uploaded.")
+        else:
+            st.success(f"✅ File uploaded: **{uploaded_file.name}**")
 
-            if st.session_state.get(f"show_pdf_{sym}", False):
-                st.markdown("### 📄 PDF Report Preview")
-                display_pdf(data["pdf_path"])
+            # Show settings snapshot (optional)
+            s = st.session_state.get("settings_snapshot", {})
+            with st.expander("⚙️ Settings Used"):
+                st.markdown(
+                    f"""
+- **Timeframe:** `{s.get("timeframe")}`
+- **Trend:** `{s.get("trend")}`
+- **Min Candles:** `{s.get("min_candles")}`
+- **Pivot Period:** `{s.get("pivot_period")}`
+- **Manual Anchor:** `{s.get("manual_anchor")}`
+- **Debug Extreme:** `{s.get("debug_extreme")}`
+"""
+                )
 
-            st.markdown("---")
+            # Preview + columns check
+            # df_preview = st.session_state["results"][list(st.session_state["results"].keys())[0]].get("df_preview")
+            # if df_preview is not None:
+            #     with st.expander("📋 Preview Data (first 10 rows)"):
+            #         st.dataframe(df_preview.head(10), use_container_width=True)
+
+            #     required_cols = {'open', 'high', 'low', 'close'}
+            #     actual_cols = {col.strip().lower() for col in df_preview.columns}
+            #     missing_cols = required_cols - actual_cols
+            #     if missing_cols:
+            #         st.error(f"❌ Missing required columns: {missing_cols}")
+            #     else:
+            #         st.success("✅ All required columns present (open, high, low, close)")
+
+    else:
+        # If not processed yet, still keep File Status at bottom (but small)
+        st.header("📁 File Status")
+        if uploaded_file is None:
+            st.info("👆 Please upload a CSV file from the sidebar to begin")
+        else:
+            st.success(f"✅ File uploaded: **{uploaded_file.name}**")
 
 
 if __name__ == "__main__":
     main()
-
